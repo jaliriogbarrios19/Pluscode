@@ -1,5 +1,8 @@
 # Pluscode
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![opencode](https://img.shields.io/badge/opencode-≥1.15.10-6e56cf)](https://opencode.ai)
+
 A curated opencode configuration preset — Gentle AI skills, SDD workflow, agent orchestration, and persistent memory. Model-agnostic: bring your own providers.
 
 ## What's inside
@@ -22,7 +25,7 @@ A curated opencode configuration preset — Gentle AI skills, SDD workflow, agen
 
 ```bash
 # Clone into opencode global config
-git clone https://github.com/YOUR_USER/pluscode.git ~/.config/opencode
+git clone https://github.com/jaliriogbarrios19/pluscode.git ~/.config/opencode
 
 # Install plugin dependencies
 cd ~/.config/opencode
@@ -142,3 +145,18 @@ export OPENAI_API_KEY="sk-..."
 ## License
 
 MIT
+
+## Contributing
+
+Pluscode follows the [Hermes Agent skill authoring standards](https://github.com/NousResearch/hermes-agent). See `docs/skill-style-guide.md` for conventions.
+
+To contribute a new skill:
+1. Create `skills/{skill-name}/SKILL.md` following the style guide
+2. Register it in `AGENTS.md` under "Skills (Auto-load based on context)"
+3. Submit a PR
+
+## Related
+
+- [opencode](https://opencode.ai) — The open source AI coding agent
+- [Hermes Agent](https://github.com/NousResearch/hermes-agent) — Skill authoring standard
+- [Agno](https://github.com/agno-agi/agno) — Agent SDK (used by agno-agent MCP tools)
