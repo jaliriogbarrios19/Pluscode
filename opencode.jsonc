@@ -1,0 +1,225 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "agent": {
+    "gentle-orchestrator": {
+      "description": "Gentle AI SDD Orchestrator - coordinates sub-agents, never does work inline",
+      "mode": "primary",
+      "model": "deepseek/deepseek-v4-pro",
+      "permission": {
+        "task": {
+          "*": "deny",
+          "sdd-apply": "allow",
+          "sdd-archive": "allow",
+          "sdd-design": "allow",
+          "sdd-explore": "allow",
+          "sdd-init": "allow",
+          "sdd-onboard": "allow",
+          "sdd-propose": "allow",
+          "sdd-spec": "allow",
+          "sdd-tasks": "allow",
+          "sdd-verify": "allow"
+        }
+      },
+      "prompt": "# Gentle AI — SDD Orchestrator Instructions\n\nBind this to the dedicated `gentle-orchestrator` agent only. Do NOT apply it to executor phase agents such as `sdd-apply` or `sdd-verify`.\n\n## SDD Orchestrator\n\nYou are a COORDINATOR, not an executor. Maintain one thin conversation thread, delegate ALL real work to sub-agents, synthesize results.\n\n### Delegation Rules\n\nCore principle: **does this inflate my context without need?** If yes -> delegate. If no -> do it inline.\n\n| Action | Inline | Delegate |\n|--------|--------|----------|\n| Read to decide/verify (1-3 files) | Yes | No |\n| Read to explore/understand (4+ files) | No | Yes |\n| Read as preparation for writing | No | Yes, together with the write |\n| Write atomic (one file, mechanical, you already know what) | Yes | No |\n| Write with analysis (multiple files, new logic) | No | Yes |\n| Bash for state (git, gh) | Yes | No |\n| Bash for execution (test, install, external tooling) | No | Yes |\n\n`delegate` (async) is the default for delegated work. Use `task` (sync) only when you need the result before your next action.\n\nAnti-patterns that always inflate context without need:\n- Reading 4+ files to \"understand\" the codebase inline -> delegate an exploration\n- Writing a feature across multiple files inline -> delegate\n- Running tests or external tools inline -> delegate\n- Reading files as preparation for edits, then editing -> delegate the whole thing together\n\n## SDD Workflow (Spec-Driven Development)\n\nSDD is the structured planning layer for substantial changes.\n\n### Artifact Store Policy\n\n- `engram` -> default when available; persistent memory across sessions\n- `openspec` -> file-based artifacts; use only when the user explicitly requests it\n- `hybrid` -> both backends; cross-session recovery + local files; more tokens per operation\n- `none` -> return results inline only; recommend enabling engram or openspec\n\n### Phase activation\n\nWhen the user requests any SDD phase or the `/sdd-` slash commands are available, delegate to the matching SDD sub-agent. One agent per phase. Match by phase name:\n\n| Command | Sub-agent to delegate |\n|---------|----------------------|\n| `/sdd-init` | `sdd-init` |\n| `/sdd-onboard` | `sdd-onboard` |\n| `/sdd-new` or `/sdd-explore` | `sdd-explore` |\n| `/sdd-propose` | `sdd-propose` |\n| `/sdd-spec` | `sdd-spec` |\n| `/sdd-design` | `sdd-design` |\n| `/sdd-tasks` | `sdd-tasks` |\n| `/sdd-apply` | `sdd-apply` |\n| `/sdd-verify` | `sdd-verify` |\n| `/sdd-archive` | `sdd-archive` |\n| `/sdd-continue` or `/sdd-ff` | Orchestrator handles inline; review all artifacts and transition to next phase |\n\nAlways use `delegate` (async, background) for SDD phases so you can continue working while the sub-agent runs.",
+      "tools": {
+        "bash": true,
+        "delegate": true,
+        "delegation_list": true,
+        "delegation_read": true,
+        "edit": true,
+        "read": true,
+        "write": true
+      }
+    },
+    "sdd-apply": {
+      "description": "Implement code changes from task definitions",
+      "hidden": true,
+      "mode": "subagent",
+      "model": "deepseek/deepseek-v4-pro",
+      "prompt": "{file:C:\\Users\\Usuario\\.config\\opencode\\prompts\\sdd\\sdd-apply.md}",
+      "tools": {
+        "bash": true,
+        "edit": true,
+        "read": true,
+        "write": true
+      }
+    },
+    "sdd-archive": {
+      "description": "Archive completed change artifacts",
+      "hidden": true,
+      "mode": "subagent",
+      "model": "deepseek/deepseek-v4-flash",
+      "prompt": "{file:C:\\Users\\Usuario\\.config\\opencode\\prompts\\sdd\\sdd-archive.md}",
+      "tools": {
+        "bash": true,
+        "edit": true,
+        "read": true,
+        "write": true
+      }
+    },
+    "sdd-design": {
+      "description": "Create technical design from proposals",
+      "hidden": true,
+      "mode": "subagent",
+      "model": "xiaomi/mimo-v2.5-pro",
+      "prompt": "{file:C:\\Users\\Usuario\\.config\\opencode\\prompts\\sdd\\sdd-design.md}",
+      "tools": {
+        "bash": true,
+        "edit": true,
+        "read": true,
+        "write": true
+      }
+    },
+    "sdd-explore": {
+      "description": "Investigate codebase and think through ideas",
+      "hidden": true,
+      "mode": "subagent",
+      "model": "deepseek/deepseek-v4-pro",
+      "prompt": "{file:C:\\Users\\Usuario\\.config\\opencode\\prompts\\sdd\\sdd-explore.md}",
+      "tools": {
+        "bash": true,
+        "edit": true,
+        "read": true,
+        "write": true
+      }
+    },
+    "sdd-init": {
+      "description": "Bootstrap SDD context and project configuration",
+      "hidden": true,
+      "mode": "subagent",
+      "model": "deepseek/deepseek-v4-flash",
+      "prompt": "{file:C:\\Users\\Usuario\\.config\\opencode\\prompts\\sdd\\sdd-init.md}",
+      "tools": {
+        "bash": true,
+        "edit": true,
+        "read": true,
+        "write": true
+      }
+    },
+    "sdd-onboard": {
+      "description": "Guide user through a complete SDD cycle using their real codebase",
+      "hidden": true,
+      "mode": "subagent",
+      "model": "deepseek/deepseek-v4-pro",
+      "prompt": "{file:C:\\Users\\Usuario\\.config\\opencode\\prompts\\sdd\\sdd-onboard.md}",
+      "tools": {
+        "bash": true,
+        "edit": true,
+        "read": true,
+        "write": true
+      }
+    },
+    "sdd-propose": {
+      "description": "Create change proposals from explorations",
+      "hidden": true,
+      "mode": "subagent",
+      "model": "deepseek/deepseek-v4-pro",
+      "prompt": "{file:C:\\Users\\Usuario\\.config\\opencode\\prompts\\sdd\\sdd-propose.md}",
+      "tools": {
+        "bash": true,
+        "edit": true,
+        "read": true,
+        "write": true
+      }
+    },
+    "sdd-spec": {
+      "description": "Write detailed specifications from proposals",
+      "hidden": true,
+      "mode": "subagent",
+      "model": "deepseek/deepseek-v4-pro",
+      "prompt": "{file:C:\\Users\\Usuario\\.config\\opencode\\prompts\\sdd\\sdd-spec.md}",
+      "tools": {
+        "bash": true,
+        "edit": true,
+        "read": true,
+        "write": true
+      }
+    },
+    "sdd-tasks": {
+      "description": "Break down specs and designs into implementation tasks",
+      "hidden": true,
+      "mode": "subagent",
+      "model": "deepseek/deepseek-v4-flash",
+      "prompt": "{file:C:\\Users\\Usuario\\.config\\opencode\\prompts\\sdd\\sdd-tasks.md}",
+      "tools": {
+        "bash": true,
+        "edit": true,
+        "read": true,
+        "write": true
+      }
+    },
+    "sdd-verify": {
+      "description": "Validate implementation against specs",
+      "hidden": true,
+      "mode": "subagent",
+      "model": "deepseek/deepseek-v4-pro",
+      "prompt": "{file:C:\\Users\\Usuario\\.config\\opencode\\prompts\\sdd\\sdd-verify.md}",
+      "tools": {
+        "bash": true,
+        "edit": true,
+        "read": true,
+        "write": true
+      }
+    }
+  },
+  "mcp": {
+    "agno-agent": {
+      "command": [
+        "C:\\Users\\Usuario\\AppData\\Local\\Python\\bin\\python.exe",
+        "C:\\Users\\Usuario\\.config\\opencode\\skills\\agno-agent\\scripts\\server.py"
+      ],
+      "enabled": true,
+      "type": "local"
+    },
+    "context7": {
+      "enabled": true,
+      "type": "remote",
+      "url": "https://mcp.context7.com/mcp"
+    },
+    "engram": {
+      "command": [
+        "C:\\Users\\Usuario\\AppData\\Local\\engram\\bin\\engram.exe",
+        "mcp",
+        "--tools=agent"
+      ],
+      "type": "local"
+    }
+  },
+  "provider": {
+    "xiaomi": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Xiaomi MiMo",
+      "options": {
+        "baseURL": "https://api.xiaomimimo.com/v1",
+        "headers": {
+          "api-key": "{env:MIMO_API_KEY}"
+        }
+      },
+      "models": {
+        "mimo-v2.5-pro": {
+          "name": "MiMo 2.5 Pro"
+        }
+      }
+    }
+  },
+  "permission": {
+    "bash": {
+      "*": "allow",
+      "git commit *": "ask",
+      "git push": "ask",
+      "git push *": "ask",
+      "git push --force *": "ask",
+      "git rebase *": "ask",
+      "git reset --hard *": "ask"
+    },
+    "read": {
+      "*": "allow",
+      "**/.env": "deny",
+      "**/.env.*": "deny",
+      "**/credentials.json": "deny",
+      "**/secrets/**": "deny",
+      "*.env": "deny",
+      "*.env.*": "deny"
+    }
+  }
+}
