@@ -77,3 +77,19 @@
 - Hermes: `version` at top level, `author` at top level, `metadata.hermes.tags`, `metadata.hermes.related_skills`
 - Fix: propagate top-level `version`/`author` into `metadata` dict if absent, fallback to `metadata.hermes.tags` for tags
 - Hermes skills also use `platforms: [linux, macos, windows]` at top level (not in metadata)
+
+## Agno + OpenCode MCP Integration
+
+**Pattern**: Agno (Python agent SDK) integrates with opencode via MCP stdio server. Install `agno` + `mcp` Python packages, create a `scripts/server.py` with `from mcp.server import Server`, and register in `opencode.jsonc` as a `type: "local"` MCP with `command: ["python", "skills/.../server.py"]`. Tools without external API keys (web_search via httpx, python_exec via subprocess) work out of the box. Model-dependent tools (code_analyze via Agno Agent) require API keys in env vars. The Agno `agno[ddg]` extra requires separate install — prefer using `httpx` directly for DuckDuckGo search to avoid extra deps.
+
+## OpenCode Config Distribution Pattern
+
+**Pattern**: To publish an opencode config as a reusable repo, keep `opencode.jsonc` model-agnostic (no hardcoded providers or model IDs) and create a separate `opencode.json` with personal overrides. Add `opencode.json` to `.gitignore`. opencode merges both at runtime — `opencode.json` values override `opencode.jsonc`. This keeps the repo clean for any user while preserving local customization. Agent names should reflect capability (pro, fast, design), not model (deepseek-pro, mimo-pro). Long inline prompts should be extracted to `prompts/` directory and referenced via `{file:prompts/...}` syntax.
+
+## .gitignore Self-Reference Trap
+
+**Gotcha**: If `.gitignore` contains its own filename, it silently prevents itself from being tracked in git. The file appears in `git status` as staged but is never actually committed. Remove `.gitignore` from its own content to make it trackable. Use `git add -f .gitignore` if it was previously self-ignored.
+
+## Hermes Agent Python Venv
+
+**Discovery**: Hermes Agent (NousResearch) installed at `C:\Users\Usuario\AppData\Local\hermes\hermes-agent\` uses a venv without pip. The system Python 3.14 at `C:\Users\Usuario\AppData\Local\Python\bin\python.exe` has full pip support. When installing Python dependencies for opencode integration, use the system Python — the Hermes venv is for running Hermes, not for package management.
