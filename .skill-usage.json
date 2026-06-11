@@ -1,0 +1,30 @@
+{
+  "skills": {
+    "obsidian-plugin": {
+      "use_count": 1,
+      "view_count": 1,
+      "patch_count": 4,
+      "last_used": "2026-06-07T03:30:00Z",
+      "last_activity_at": "2026-06-07T03:30:00Z",
+      "created_at": "2025-01-01T00:00:00Z",
+      "archived_at": null,
+      "state": "active",
+      "pinned": false,
+      "created_by": "user"
+    },
+    "skill-curator": {
+      "use_count": 1,
+      "view_count": 1,
+      "patch_count": 0,
+      "last_used": "2026-06-07T03:30:00Z",
+      "last_activity_at": "2026-06-07T03:30:00Z",
+      "created_at": "2025-01-01T00:00:00Z",
+      "archived_at": null,
+      "state": "active",
+      "pinned": false,
+      "created_by": "bundled"
+    }
+  },
+  "last_review": "2026-06-07T03:30:00Z",
+  "review_count": 1
+}

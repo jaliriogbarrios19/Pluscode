@@ -22,6 +22,10 @@
 - Cast: `folderObj.children as (TFolder | TFile)[]`
 - Check with `instanceof TFile` / `instanceof TFolder` before accessing properties
 
+## TypeScript Configuration
+
+**Gotcha**: TypeScript puede fallar con "No inputs were found in config file" cuando el path del proyecto contiene espacios (ej: `D:\Obsidian Files\...`). El `exclude` default incluye el directorio del proyecto, y con espacios en el path el glob matching puede fallar. Fix: agregar `"exclude": ["node_modules"]` explícito en `tsconfig.json`. Con esto, el `include: ["src/**/*.ts"]` funciona correctamente.
+
 ## Import Patterns
 
 **Gotcha**: `esbuild` succeeds with broken `import type` paths because type-only imports are erased at bundle time.
@@ -78,11 +82,32 @@
 - **`fetch()` crudo**: rechazado. Usar `requestUrl()` de la API de Obsidian — ya viene importado en `import { requestUrl } from "obsidian"`. `requestUrl` devuelve `{ status, json }` con JSON ya parseado (no un `Response` con `.json()`).
 - **`setAttr()`**: es parte de la API de Obsidian (agregado a HTMLElement), no un problema de review.
 
+- **Command IDs con prefijo del plugin**: el bot marca warning cuando el ID incluye el plugin ID (ej: `supsync-sync-now`). Obsidian ya namespacing automáticamente por plugin. Usar IDs cortos: `sync-now`, `sign-in`, `open-settings`.
+
+- **`onunload()` debe retornar `void`**: La firma de `Plugin.onunload()` espera `void`. Si la lógica de cleanup es asincrónica, wrappear en `void (async () => { ... })()`. Lo mismo aplica para callbacks de `addCommand`: deben ser `() => void`, no `async () => {}`.
+
+- **`app.setting` no está en los tipos de Obsidian**: El bot rechaza `as any` y `@typescript-eslint/no-explicit-any`. Usar declaration merging con un `.d.ts`:
+```ts
+// src/obsidian-extensions.d.ts
+import "obsidian";
+declare module "obsidian" {
+    interface App {
+        setting: {
+            open(): void;
+            openTabById(id: string): void;
+        };
+    }
+}
+```
+Esto permite `this.app.setting.open()` sin casts ni eslint-disables.
+
+- **`.obsidian/` hardcodeado en defaults**: La carpeta de configuración es configurable por el usuario. El bot rechaza hardcodear `.obsidian/` en `DEFAULT_SETTINGS` y en placeholders. Usar `app.vault.configDir` en runtime para excluirla dinámicamente. Nunca incluir `.obsidian/` como string literal en defaults o ejemplos.
+
 ## API Version Compatibility (`no-unsupported-api`)
 
 **Gotcha**: El bot marca `no-unsupported-api` cuando el código usa APIs más nuevas que `minAppVersion`. Las versiones exactas están en `node_modules/obsidian/obsidian.d.ts` con `@since`. Reemplazos confirmados:
 
-- `fileManager.trashFile()` → @since 1.6.6. Reemplazar con `vault.trash(file, true)` (@since 0.9.7).
+- `fileManager.trashFile()` → @since 1.6.6. Si `minAppVersion >= 1.6.6`, usar `fileManager.trashFile(file)`. Si `minAppVersion < 1.6.6`, usar `vault.trash(file, true)` (@since 0.9.7).
 - `workspace.revealLeaf()` → @since 1.7.2. Reemplazar con `workspace.setActiveLeaf(leaf, false, true)` (@since 0.16.3).
 - `PluginSettingTab.display()` → deprecated @since 1.13.0. Extraer lógica a `private render()`, hacer que `display()` delegue en `render()`, usar `this.render()` para refrescos internos.
 - `JSON.parse()` retorna `any` → siempre tipar explícitamente (`as MiTipo[]`, `as unknown`) para evitar `no-unsafe-assignment`.
@@ -106,9 +131,13 @@
 
 **Gotcha**: El bot de review solo lee el branch `main` de GitHub. Cambios pusheados a branches como `staging` o `staging2` NO son detectados. Hay que mergear a `main` para que el bot los vea.
 
+**Gotcha**: El campo `name` en `manifest.json` solo acepta caracteres ASCII. Tildes, eñes y otros caracteres Unicode son rechazados por el bot con el error "This name is not allowed in the directory". Ej: "Mi Agrupación" → rechazado; "Mi Agrupacion" → aceptado. El campo `id` sí permite guiones y lowercase sin restricción.
+
 **Gotcha**: `gh release create` con `--notes` falla en Windows si hay caracteres especiales (comillas, tildes). Usar `--notes-file` con un archivo temporal.
 
-**Gotcha**: El bot de review recomienda artifact attestations (GitHub Actions) para `main.js` y `styles.css`. No es hard-fail pero suma. Se configura con `actions/attest-build-provenance@v2` en un workflow disparado por tag push.
+**Gotcha**: El bot de review recomienda artifact attestations (GitHub Actions) para `main.js` y `styles.css`. No es hard-fail pero suma. Se configura con `actions/attest-build-provenance@v2` en un workflow disparado por tag push. Requiere `id-token: write` en los permissions del workflow.
+
+**Gotcha**: `actions/attest-build-provenance@v2` puede fallar con "Resource not accessible by integration" en repos personales si el repo no tiene habilitado el soporte de attestations a nivel organización/cuenta. Si falla, es seguro remover el paso — es opcional y no bloquea la aceptación del plugin.
 
 **Gotcha**: Los tags de release NO deben tener prefijo "v". Obsidian compara el string exacto del campo `version` en `manifest.json` contra el tag del release de GitHub. Si el manifest dice `"0.6.0"` pero el tag es `v0.6.0`, el plugin no se puede instalar ("no GitHub release with that version has been published yet"). Esto pasó dos veces (Research_and_Paper y Audio_Transcript). Fix: (1) eliminar releases/tags con "v" y recrearlos sin prefijo, (2) agregar validación en el workflow: `if: startsWith(github.ref_name, 'v')` → `exit 1`.
 
@@ -194,28 +223,103 @@ URL.revokeObjectURL(blobUrl);
 ```
 Pausa se maneja con `port.postMessage({ paused: true })` en vez de setear `onaudioprocess = null`.
 
-## Sync / pullChanges Patterns
-
-**Gotcha**: `pullChanges()` en SyncManager tiene `limit: "100"` que trunca descargas parciales. En mobile con +100 registros, solo bajan los primeros 100. Fix: paginar con loop `do...while (fetched.length === 100)` usando `order: updated_at.asc` + `offset`. El `lastPullAt` se setea desde el último registro de `allNotes` (el más reciente) para pulls incrementales posteriores. Procesar páginas incrementalmente evita acumulación en memoria para volumen futuro.
-
-**Gotcha**: `pullChanges()` devuelve 0 silenciosamente si `vaultReady` es false. En mobile con red lenta, `ensureVault()` puede no completarse antes del click del usuario. Fix: si `!vaultReady`, reintentar `ensureVault()` con Notices de error específicos ("Sesión expirada", "Revisá URL y API key"), igual que ya hace `pushNow()`.
-
-**Gotcha**: En iOS la status bar (`addStatusBarItem()`) no se renderiza. Todo feedback de sync debe usar `new Notice()` que sí funciona en todas las plataformas. No confiar en la status bar para errores críticos.
-
-## restUpsert sin auto-refresh
-
-**Gotcha**: `restUpsert()` usa `requestUrl()` directamente, NO pasa por `api()`. No tiene manejo de 401 ni refresh automático de token. Funciones que dependen de él (`setVaultSectores`, creación de vault en `ensureVault`) fallan silenciosamente si el token expiró. Fix: no usar `void` al llamar `setVaultSectores` — awaitear y capturar error.
-
-## ~Hogares con Union-Find
-
-**Patrón**: Para estimar hogares únicos a partir de visitas sin ID de hogar, usar union-find (DSU) sobre nombres de personas compartidos. Si dos visitas tienen al menos un nombre en común durante el ciclo, se consideran el mismo hogar. El tilde (~) en la label señala "valor estimado". Implementación en `src/utils/hogares.ts`.
-
-## KPI Cards Clickeables
-
-**Patrón**: Convertir KPIs estáticos en botones con `onClick` opcional. La card se crea con `createDiv` normal pero si hay callback, se agrega `cursor: pointer` y `addEventListener("click", onClick)`. Los registros filtrados se muestran en `RecordListModal` que recibe un array de `{ file: TFile; data: Record<string, unknown> }` y fields a mostrar. Cada registro tiene un link clickeable que abre el archivo via `workspace.getLeaf(false).openFile(file)`.
+## Modal open() Promise Pattern
 
 **Patrón**: `Modal.open()` retorna `void`. Para modales que necesitan devolver un valor asincrónico (confirmación, selección), crear un método `prompt()` separado que retorne `Promise<T | null>` e internamente llame a `super.open()`. Esto evita el conflicto de tipos con el `open()` de la clase base.
 ```ts
 open(): void { super.open(); }
 prompt(): Promise<T | null> { return new Promise(resolve => { this.resolve = resolve; super.open(); }); }
 ```
+
+## i18n / Localization
+
+**Patrón**: Para multi-idioma, usar `getLanguage()` de Obsidian que devuelve el ISO code configurado por el usuario (default `"en"`). Los códigos disponibles están en [obsidian-translations](https://github.com/obsidianmd/obsidian-translations?tab=readme-ov-file#existing-languages).
+
+Estructura:
+```
+src/i18n/
+  index.ts      → initLocale() y t(key, params?)
+  en.json       → fallback (siempre presente)
+  es.json       → idiomas adicionales
+```
+
+**initLocale()**: llamar en `onload()` después de `loadSettings()`. Lee `getLanguage()`, selecciona el locale o cae en `en`.
+
+**t(key, params?)**: busca en el locale actual, fallback a `en`, fallback al key crudo. Soporta `{param}` con reemplazo via `String(v)`:
+```ts
+t("plugin.connected", { email: user.email, vault: this.vaultName })
+// → "SupSync: Connected as foo@bar.com to MyVault"
+```
+
+**Gotcha**: Los locales deben importarse como JSON (`import en from "./en.json"`). Requiere `resolveJsonModule: true` en tsconfig. esbuild maneja JSON nativamente sin config extra.
+
+**Gotcha**: Las keys deben ser consistentes entre todos los locale files. Si falta una key en un locale, `t()` hace fallback a `en.json`. Si tampoco está en `en`, devuelve el key crudo como string.
+
+## Promise-in-void-context Patterns
+
+**Gotcha**: El bot marca "Promise returned in function argument where a void return was expected" en varios patrones. No solo en async callbacks — también en callbacks sincrónicos con retorno implícito.
+
+### Sync callbacks with implicit return
+
+Arrow functions without block body return the expression value. Si no es `void`, TypeScript advierte:
+
+```ts
+// MAL: .onChange((v) => (this.sector = v)) — la asignación retorna string
+// MAL: .forEach((t) => d.addOption(t, t)) — addOption retorna DropdownComponent
+// BIEN:
+.onChange((v) => { this.sector = v; })
+.forEach((t) => { d.addOption(t, t); })
+```
+
+### Async in setInterval/setTimeout
+
+```ts
+// MAL: setInterval(() => this.pullChanges(), ms) — pullChanges retorna Promise
+// BIEN:
+setInterval(() => { void this.pullChanges(); }, ms)
+```
+
+### Async callback to constructor expecting void
+
+Cuando un constructor/model espera `(arg) => void` pero necesitás async:
+
+```ts
+// MAL: new LoginModal(app, async (email) => { ... })
+// BIEN:
+new LoginModal(app, (email) => { void (async () => {
+    ...
+})(); })
+```
+
+## Eliminating unsafe-any in Views with ScanResult<T>
+
+**Patrón**: Los views que consumen datos de `scanRecords()`/`scanAllRecordsInCycle()` reciben `Record<string, unknown>` y generan docenas de warnings de unsafe member access. La solución es tipar en la capa de datos con un generic:
+
+```ts
+// En data/manager.ts
+export interface ScanResult<T> {
+    file: TFile;
+    data: T;
+}
+
+// scanAllRecordsInCycle retorna tipos concretos:
+Promise<{
+    visitas: ScanResult<Visita>[];
+    vidaComunitaria: ScanResult<VidaComunitaria>[];
+    procesoEducativo: ScanResult<ProcesoEducativo>[];
+}>
+
+// El cast se hace UNA vez en el manager:
+visitas: visitas.map(r => ({ file: r.file, data: r.data as unknown as Visita }))
+```
+
+Los views importan `ScanResult` y usan tipos concretos — se eliminan TODOS los unsafe-any warnings de una vez. Los type guards (`Array.isArray`, `typeof x === "string"`) se vuelven innecesarios porque los tipos ya garantizan el shape.
+
+## Line Count Management
+
+**Gotcha**: El límite de 300 líneas por archivo fuente se viola fácilmente en plugins Obsidian que tienen modals complejos y vistas con mucha lógica de UI. Archivos que típicamente exceden:
+- `data/manager.ts` — CRUD + file I/O + templates (extraer file I/O a `data/files.ts`)
+- Modales con formularios grandes — extraer el form a un componente separado o helper
+- `settings.ts` — separar secciones de settings en tabs o archivos por sección
+
+No partir archivos sin consultar al usuario, pero señalarlos proactivamente cuando se detecten.

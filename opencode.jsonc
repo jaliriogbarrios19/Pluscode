@@ -155,7 +155,8 @@
     "agno-agent": {
       "command": [
         "python",
-        "skills/agno-agent/scripts/server.py"
+        "-u",
+        "C:\\Users\\Usuario\\.config\\opencode\\skills\\agno-agent\\scripts\\server.py"
       ],
       "enabled": true,
       "type": "local"
@@ -171,7 +172,7 @@
         "mcp",
         "--tools=agent"
       ],
-      "enabled": false,
+      "enabled": true,
       "type": "local"
     }
   },
@@ -184,6 +185,12 @@
       "git push --force *": "ask",
       "git rebase *": "ask",
       "git reset --hard *": "ask"
+    },
+    "edit": {
+      "*": "allow"
+    },
+    "external_directory": {
+      "*": "allow"
     },
     "read": {
       "*": "allow",

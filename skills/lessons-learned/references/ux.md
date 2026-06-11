@@ -33,3 +33,10 @@
 **Lesson**: Every delete action needs `confirm()`.
 - Applies to: all views (table rows), all modals (delete button)
 - The user WILL accidentally click × at some point
+
+## Selectors: Always Pull from the Source of Truth
+
+**Lesson**: Student/user selectors that only populate from runtime data (imported/manually entered) break the UX when no data exists yet. The selector should always pull from the configuration (the source of truth) as a fallback, and merge with runtime data when available.
+- A student dropdown showing zero options with the message "no hay datos" blocks the user from even starting their work
+- Pattern: populate first from config/static list, then overlay runtime data for enriched display
+- The qualitative and quantitative data paths should be independent - one should never block the other

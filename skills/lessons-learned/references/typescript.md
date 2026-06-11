@@ -25,6 +25,16 @@
 - Rename import: `import { t as i18n }`
 - This happens in all views with transaction/debt iteration loops
 
+## Promise.all vs Promise.allSettled for Independent APIs
+
+**Gotcha**: `Promise.all` fails-fast — si una promesa rechaza, TODAS las demás se descartan aunque ya hayan resuelto. Para llamadas a APIs independientes (PubMed ∥ OpenAlex), usar `Promise.allSettled`:
+```ts
+const [a, b] = await Promise.allSettled([fetchA(), fetchB()]);
+const resultsA = a.status === "fulfilled" ? a.value : [];
+const resultsB = b.status === "fulfilled" ? b.value : [];
+```
+Si PubMed está caído, OpenAlex igual entrega resultados. Con `Promise.all`, el usuario se queda sin nada.
+
 ## Async Button Disabled vs Handler Logic Mismatch
 
 **Bug**: Button `disabled` condition used `(!wavBlob && !selectedFile)` but handler required `mode === "record" && wavBlob` or `mode === "file" && selectedFile`. User could switch modes while stale source kept button enabled.
@@ -36,3 +46,11 @@
 **Bug**: Frontend used `uploadData.path` (absolute server path) with fallback to local filename. When `path` was empty/corrupt, relative filename reached backend and file was not found.
 - Fix: always use `uploadData.filename` (relative). Backend resolves relative paths against `vault_root` consistently.
 - Validate upload response: check `uploadData.ok && uploadData.filename` before proceeding.
+
+## Build Verification Before Release
+
+**Patrón**: Siempre correr `tsc -noEmit -skipLibCheck` localmente antes de crear un tag de release. Evita ciclos de CI fallidos (build → error → fix → commit → tag → push → esperar → falló otra vez). Son 30 segundos locales vs minutos en GitHub. Esto aplica especialmente después de refactors que tocan tipos (fetch→requestUrl, ScriptProcessor→AudioWorklet, casts de Component).
+
+## window.setInterval Return Type
+
+**Gotcha**: `setInterval` y `setTimeout` retornan `number` en tipos de browser, no `NodeJS.Timeout`. Usar `number | null` para IDs de intervalos/timers en vez de `ReturnType<typeof setInterval>` o `ReturnType<typeof window.setInterval>`. Ambos fallan en CI porque `window.setInterval` tiene un tipo diferente según el contexto (DOM vs Node).

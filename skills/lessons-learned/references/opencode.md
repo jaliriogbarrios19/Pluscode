@@ -63,6 +63,12 @@
 - After 2 fix iterations with remaining issues, ask user whether to continue
 - Confirmed = both judges agree. Suspect = one judge found it — report, don't auto-fix.
 
+**Gotcha**: Fixes that modify shared mutable state break downstream consumers. In web-research, fix C2 made `dedupWorks` call `seen.set()` on a shared Map. The post-rerank loop used `if (!seen.has(key))` which became permanently false — all reranked LLM scores were silently discarded. When a fix touches shared state, audit ALL consumers of that state, not just the immediate caller.
+
+## SDD Engram Routing
+
+**Gotcha**: Si el proyecto no está registrado en Engram (no `.engram/config.json`, no git child), `mem_save` rechaza con `unknown_project`. Solución: usar el proyecto auto-detectado (`moon-bridge`) pero prefijar `topic_key` con el nombre real del proyecto (`sdd/neurovault/context`). El topic_key es el namespace efectivo — el project es solo el contenedor físico.
+
 ## Curator Provenance Model
 
 **Gotcha**: The curator needs both autonomous and user-requested action modes. Initial design said "only agent-created skills" but optional skills install/deactivate requires handling user-created skills too.
@@ -93,3 +99,21 @@
 ## Hermes Agent Python Venv
 
 **Discovery**: Hermes Agent (NousResearch) installed at `C:\Users\Usuario\AppData\Local\hermes\hermes-agent\` uses a venv without pip. The system Python 3.14 at `C:\Users\Usuario\AppData\Local\Python\bin\python.exe` has full pip support. When installing Python dependencies for opencode integration, use the system Python — the Hermes venv is for running Hermes, not for package management.
+
+## Edit Tool: Orphaned Code Outside Functions
+
+**Gotcha**: When editing a function body to add early-return branches (e.g. adding `if (!anio) { ...; return; }` at the top), the edit can leave a copy of the OLD function body OUTSIDE the closing brace. The orphan code references the function's parameter in the outer scope where it doesn't exist, causing `ReferenceError` that kills the entire IIFE before any namespace assignments happen.
+- After edits that restructure function internals, verify the closing braces are in the right place
+- If a button "does nothing" after edits, check the console for silent IIFE failures - orphan code is the prime suspect
+
+## IIFE Namespace: Never Reassign Shared Mutable Objects
+
+**Gotcha**: When multiple IIFE modules share a mutable object via a namespace property (`ConstructorApp.USC._data = uscData`), never do `U._data = {}` in another module. This replaces the reference with a new object, breaking the link to the original. Subsequent writes go to the old object, reads go to the new one - silent data desync.
+- Create a `clearData()` function on the original module that deletes keys from the existing object
+- All modules call `U.clearData()` instead of reassigning
+
+## Unicode Escapes: HTML vs JavaScript
+
+**Gotcha**: `\uXXXX` escape sequences only work inside JavaScript string literals. In HTML content (text between tags, attribute values outside `on*` handlers), they render as literal text like `Im\u00e1genes`.
+- In HTML files, use actual UTF-8 characters directly (e.g. `Imágenes`)
+- Only use `\uXXXX` inside `<script>` tags or `onclick="..."` handlers where the content is parsed as JS
